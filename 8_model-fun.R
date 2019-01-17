@@ -1,7 +1,15 @@
+# Generate regression tree
+#
+# Author: DW & NK
+# Editor: NK
+
+
+# Helpers -----------------------------------------------------------------
+
 # Have we reached a terminal node
 enough_obs <- function(df_list, min_obs) {
-  leq_works <- nrow(df_list$leq) > min_obs
-  gre_works <- nrow(df_list$gre) > min_obs
+  leq_works <- nrow(df_list$leq) >= min_obs
+  gre_works <- nrow(df_list$gre) >= min_obs
   return(leq_works && gre_works)
 }
 
@@ -37,84 +45,92 @@ obj_fun <- function(model_list) {
   return(list(stat = stat, p_val = pval))
 }
 
-avg_dist <- function(regions, distmat){
-  dist_regions <- distmat[regions, regions]
-  # not including diagonal (see ?lower.tri)
-  mean_dist <- mean(dist_regions[lower.tri(dist_regions)])
+# What's the average distance between the regions
+avg_dist <- function(regions, dist_mat) {
+  dist_regions <- dist_mat[regions, regions]
+  mean_dist <- mean(dist_regions[lower.tri(dist_regions)]) # strict lower triangular
   return(mean_dist)
 }
 
-# Source Cpp version
+
+# Meat --------------------------------------------------------------------
+
+# Source the Rcpp implementation for the option cpp_sp
 Rcpp::sourceCpp("reg_tree/cpp_version.cpp")
 
-# Takes in df & looks for nice splits, returns the best
+# Takes in df & looks for nice splits, returns the best along with some info
 find_split <- function(
-  df, split_vars, formula, 
-  fun = lm, predictors = 3, 
-  min_obs = 3, n_splits = 10, distmat, penalty, pmult, cpp_sp, ...) {
-  if(penalty & cpp_sp){
-    stop("Penalty not yet implemented in C++ version!")
-  }
+  df, split_vars, # dataframe & names of the splitting var columns
+  formula, predictors, fun = lm,
+  min_obs = 3, n_splits = 10, # termination criteria
+  dist_penalty = 0, dist_mat = NULL, # experimental distance punishment
+  cpp_sp = FALSE, # experimental Rcpp implementation
+  ...) {
+  
+  if(dist_penalty && cpp_sp) stop("dist_penalty not implemented in Rcpp")
+  if(dist_penalty) warning("Using dist_penalty may not work as intended")
+  
   best_vals <- matrix(NA, nrow = length(split_vars), ncol = 3)
+  
   rownames(best_vals) <- split_vars
   colnames(best_vals) <- c("var_value", "chisq_value", "penalized")
-  if(cpp_sp){
+  
+  if(cpp_sp) {
     yvar <- all.vars(as.formula(formula), df)[1]
     ycpp <- as.matrix(df[yvar], ncol = 1)
     Xcpp <- model.matrix(as.formula(formula), df)
   }
+  
   j <- 1
   for(var in split_vars) {
-    if(cpp_sp){
+    
+    if(cpp_sp) {
       
       Zcpp <- as.matrix(df[var], ncol = 1)
-
       split_vals <- as.vector(Zcpp)
+      # Run Rcpp implementation
       var_stat <- get_var_stat(y = ycpp, X = Xcpp, Z = Zcpp, min_obs = min_obs)
-    }else{
-    var_stat <- vector("double", length = length(split_vars))
-    if(penalty)varp_stat <- vector("double", length = length(split_vars))
-    i <- 1
-    split_vals <- seq(min(df[[var]]), max(df[[var]]), length.out = n_splits)
-    for(z in split_vals) {
-      df_list <- splitter(df, var, z)
       
-      if(enough_obs(df_list, min_obs = min_obs)) {
-        res <- obj_fun(coefs(df_list, formula, fun, ...))
-        var_stat[i] <- as.numeric(res$stat)
-        if(penalty){
-          # TODO: This is potentially dangerous but works for now
-          regions_leq <- rownames(df_list$leq)
-          regions_gre <- rownames(df_list$gre)
-          w_leq <- length(regions_leq)
-          w_gre <- length(regions_gre)
-          wghts <- c(w_leq, w_gre) / (w_leq + w_gre)
-          adist_leq <- avg_dist(regions_leq, distmat)
-          adist_gre <- avg_dist(regions_gre, distmat)
-          # TODO: Penalty is extremely small -> multiplier
-          penalty <- ifelse(is.null(pmult), 1, pmult) / weighted.mean(c(adist_leq, adist_gre), wghts)
-          varp_stat[i] <- var_stat[i] + penalty
+    } else {
+      
+      var_stat <- vector("double", length = length(split_vars))
+
+      i <- 1
+      # split_vals <- seq(min(df[[var]]), max(df[[var]]), length.out = n_splits)
+      split_vals <- quantile(df[[var]], seq(0, 1, n_splits))
+      
+      for(z in split_vals) {
+        df_list <- splitter(df, var, z)
+        if(enough_obs(df_list, min_obs = min_obs)) {
+          res <- obj_fun(coefs(df_list, formula, fun, ...))
+          var_stat[i] <- as.numeric(res$stat)
+          
+          if(dist_penalty) {
+            w_leq <- length(rownames(df_list$leq))
+            w_gre <- length(rownames(df_list$gre))
+            
+            wghts <- c(w_leq, w_gre) / (w_leq + w_gre)
+            
+            adist_leq <- avg_dist(rownames(df_list$leq), dist_mat)
+            adist_gre <- avg_dist(rownames(df_list$gre), dist_mat)
+            penalty <- dist_penalty / weighted.mean(c(adist_leq, adist_gre), wghts)
+            var_stat[i] <- var_stat[i] + penalty
+          }
+        } else { # if(!enough_obs)
+          var_stat[i] <- NA
         }
-      } else {
-        var_stat[i] <- NA
-        if(penalty)varp_stat[i] <- NA
-      }
-      i <- i + 1
-    } # for(z in split_vals)
-    } # else of cpp
+        i <- i + 1
+      } # for(z in split_vals)
+    } # if(!cpp_sp)
+    
     if(all(is.na(var_stat))) {
       best_vals[j, 1] <- NA
       best_vals[j, 2] <- NA
     } else {
-      if(penalty){
-        best_vals[j, 1] <- split_vals[which(varp_stat == max(varp_stat, na.rm = TRUE))][1]
-        # TODO: here penalized stat?
-        # p-vals should be correct like here!
-        best_vals[j, 2] <- var_stat[which(varp_stat == max(varp_stat, na.rm = TRUE))][1]
-        best_vals[j, 3] <- max(varp_stat, na.rm = TRUE)
-      }else{
       best_vals[j, 1] <- split_vals[which(var_stat == max(var_stat, na.rm = TRUE))][1]
       best_vals[j, 2] <- max(var_stat, na.rm = TRUE)
+      if(dist_penalty) {
+        best_vals[j, 3] <- var_stat[which(var_stat == max(var_stat, na.rm = TRUE))][1]
       }
     }
     j <- j + 1
@@ -125,11 +141,9 @@ find_split <- function(
     split$pval <- Inf
     return(split)
   }
-  if(penalty){
-    best_split <- which(best_vals[, 3] == max(best_vals[, 3], na.rm = TRUE))[1]
-  }else{
-    best_split <- which(best_vals[, 2] == max(best_vals[, 2], na.rm = TRUE))[1]
-  }
+  
+  best_split <- which(best_vals[, 2] == max(best_vals[, 2], na.rm = TRUE))[1]
+
   split$pval <- dchisq(best_vals[best_split, 2], df = predictors)
   split$name <- rownames(best_vals)[best_split]
   split$value <- best_vals[best_split, 1]
@@ -142,10 +156,10 @@ get_nodes <- function(
   df, split_vars, formula,predictors = 3,
   n_splits = 10, min_obs = 3, max_steps = 4, pval = 0.05,
   step = 0, verbose = FALSE, state = NULL,
-  distmat = NULL, penalty = FALSE, pmult = NULL, cpp = FALSE,  ...) {
+  dist_mat = NULL, dist_penalty = FALSE, pmult = NULL, cpp = FALSE,  ...) {
   
   split <- find_split(df, split_vars, formula, fun = lm, 
-                      predictors, min_obs, n_splits, distmat = distmat, penalty = penalty, pmult = pmult, cpp_sp = cpp, ...)
+                      predictors, min_obs, n_splits, dist_mat = dist_mat, dist_penalty = dist_penalty, pmult = pmult, cpp_sp = cpp, ...)
   
   if(split$pval < pval && step < max_steps) {
     if(is.null(state)){
