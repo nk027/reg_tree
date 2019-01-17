@@ -212,6 +212,21 @@ Rcpp::sourceCpp("get_var_stat.cpp")
 ```
 
 
+## Discussion
+
+**Regression tree algorithm for convergence club identification?**
+
+@postiglione2013using document drawbacks: 
+
+- spatial information as nuisance
+- strict jumps on boundaries
+- not globally optimal
+- no other controls
+
+@andreano2017spatial
+
+- spatial augmented convergence model (SDM), iterated spatially weighted regression algorithm
+
 ## Literature
 
 <!-- Leave me alone -->
