@@ -56,7 +56,7 @@ obj_fun <- function(model_list) {
 # Meat --------------------------------------------------------------------
 
 # Source the Rcpp implementation for the option cpp
-Rcpp::sourceCpp("reg_tree/cpp_implementation.cpp")
+Rcpp::sourceCpp("cpp_implementation.cpp")
 
 #' @title Find Split
 #' @description Takes in a df & looks for nice splits.
@@ -84,8 +84,8 @@ Rcpp::sourceCpp("reg_tree/cpp_implementation.cpp")
 #'
 find_split <- function(
   df, split_vars,
-  formula, fun = lm, predictors, 
-  min_obs = 3, n_splits = 100,
+  formula, fun, predictors, 
+  min_obs, n_splits,
   # dist_penalty = 0, dist_mat = NULL,
   cpp = FALSE,
   ...) {
@@ -117,12 +117,12 @@ find_split <- function(
 
       i <- 1
       # split_vals <- seq(min(df[[var]]), max(df[[var]]), length.out = n_splits)
-      split_vals <- quantile(df[[var]], seq(0, 1, n_splits))
+      split_vals <- quantile(df[[var]], seq(0, 1, length.out = n_splits))
       
       for(z in split_vals) {
         df_list <- splitter(df, var, z)
         if(enough_obs(df_list, min_obs = min_obs)) {
-          res <- obj_fun(coefs(df_list, formula, fun, ...))
+          res <- obj_fun(coefs(df_list, formula, fun))
           var_stat[i] <- as.numeric(res$stat)
           # if(dist_penalty) {
           #   wghts <- c(length(rownames(df_list$leq)), length(rownames(df_list$gre))) / 
@@ -183,7 +183,7 @@ get_nodes <- function(
   
   split <- find_split(df, split_vars, 
                       formula, fun, predictors, 
-                      min_obs, n_splits, 
+                      min_obs = min_obs, n_splits = n_splits, 
                       # dist_mat, dist_penalty, 
                       cpp = cpp,
                       ...)

@@ -53,7 +53,7 @@ summary(mod_true)
 
 nodes <- get_nodes(reg_df, split_vars = c("Z1", "Z2", "Z3"), 
                    formula = "Ytilde ~ X2 + X3", verbose = TRUE, 
-                   max_steps = 10, min_obs = 20, pval = 0.001, cpp = FALSE)
+                   max_steps = 10, min_obs = 10, pval = 0.001, cpp = FALSE)
 
 # helpers
 df_split <- nodes2dfs(nodes, terminal = TRUE)
