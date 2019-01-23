@@ -3,6 +3,9 @@
 # Author: DW
 # Editor: NK
 
+
+# Stuff -------------------------------------------------------------------
+
 do_reg <- function(node, fun, formula, ...) {
   out <- fun(formula, data = node$df, ...)
   return(list(coefs = out))

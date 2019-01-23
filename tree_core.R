@@ -71,7 +71,7 @@ Rcpp::sourceCpp("cpp_implementation.cpp")
 #' @param df A dataframe with named columns and rows.
 #' @param split_vars Vector of names of the variables used for splitting.
 #' @param formula Formula to feed to fun().
-#' @param fun Function to apply, defaults to lm().
+#' @param fun Function to apply.
 #' @param predictors Integer indicating the dof.
 #' @param min_obs Integer with minimum number of observations in a split.
 #' @param n_splits Integer determining how many splits should be attempted 
@@ -170,15 +170,41 @@ find_split <- function(
 
 # Wrapper -----------------------------------------------------------------
 
-# Wraps find_split() and looks for splits until min_obs, max_steps or pval is breached.
+#' @title Get Nodes
+#' @description Wraps find_split() and looks for splits until a termination 
+#' condition is reached.
+#' @author DW & NK
+#'
+#' @param df A dataframe with named columns and rows.
+#' @param split_vars Vector of names of the variables used for splitting.
+#' @param formula Formula to feed to fun().
+#' @param fun Function to apply. Defaults to lm().
+#' @param predictors Integer indicating the dof. Defaults to 1.
+#' @param min_obs Integer with minimum number of observations in a split. Defaults to 5.
+#' @param max_steps Integer with the maximum number of recursions to perform. Defaults to 5.
+#' @param pval Double of the pval to consider significant. Defaults to 0.05.
+#' @param n_splits Integer determining how many splits should be attempted 
+#' per variable (done via quantiles). Default value is 100.
+#' @param verbose Logical determining whether to include and print a reason when a 
+#' terminal node is reached. Defaults to TRUE.
+#' @param cpp Logical indicating whether to use the C++ implementation. Defaults to
+#' FALSE, as it is an experimental feature.
+#' @param step Used when recursing - do not supply manually.
+#' @param state Used when recursing - do not supply manually.
+#' @param ... 
+#'
+#' @return Returns a list of lists, where terminal nodes contain the final dataframe,
+#' and the path to it.
+#'
 get_nodes <- function(
   df, split_vars, 
   formula, fun = lm, predictors = 1,
   min_obs = 5, max_steps = 5, pval = 0.05,
   n_splits = 100, 
-  step = 0, state = NULL, verbose = TRUE, 
+  verbose = TRUE, 
   # dist_mat = NULL, dist_penalty = FALSE, 
   cpp = FALSE, 
+  step = 0, state = NULL, 
   ...) {
   
   split <- find_split(df, split_vars, 
@@ -197,9 +223,9 @@ get_nodes <- function(
     nodes <- splitter(df, split_var = split$name, split_val = split$value)
     step <- step + 1
     return(list(Recall(df = nodes$leq, split_vars, formula, fun, predictors, 
-                       min_obs, max_steps, pval, n_splits, step, state, verbose), 
+                       min_obs, max_steps, pval, n_splits, verbose, cpp, step, state), 
                 Recall(df = nodes$gre, split_vars, formula, fun, predictors, 
-                       min_obs, max_steps, pval, n_splits, step, state, verbose)))
+                       min_obs, max_steps, pval, n_splits, verbose, cpp, step, state)))
   } else {
     if(verbose) {
       if(split$pval == Inf) {

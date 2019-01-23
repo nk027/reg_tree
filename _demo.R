@@ -3,6 +3,9 @@
 # Author: NK, LV & DW
 # Editor: NK
 
+
+# Setup -------------------------------------------------------------------
+
 set.seed(123)
 library(spdep)
 source("tree_core.R")
