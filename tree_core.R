@@ -234,7 +234,7 @@ get_nodes <- function(
         cat("Encountered p-value of", split$pval, ".\n")
       }
       if(step >= max_steps) cat("Maximum steps performed.\n")
-      return(list(df = df, state = state))
+      return(list(df = df, node = state))
     } else {
       # Returns a plain df
       return(df)

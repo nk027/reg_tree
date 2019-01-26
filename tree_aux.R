@@ -132,7 +132,7 @@ make_candidates <- function(nodes) {
 }
 
 cumPaste <- function(vec, collapse = NULL) {
-  return(sapply(vec, function(x)paste(vec[1:which(vec == x)], collapse)))
+  return(sapply(vec, function(x)paste(vec[1:which(vec == x)], collapse = collapse)))
 }
 
 fix_plan <- function(plan) {
@@ -141,10 +141,10 @@ fix_plan <- function(plan) {
     str <- pp[[length(pp)]]
     spstr <- stringr::str_split(str, "&", simplify = TRUE)
     final <- spstr[ncol(spstr)]
-    final <- if(stringr::str_detect(final, ">")) {
-      stringr::str_replace(final, ">", "<=")
+    if(stringr::str_detect(final, ">")) {
+      final <- stringr::str_replace(final, ">", "<=")
     } else if(stringr::str_detect(final, "<=")) {
-      stringr::str_replace(final, "<=", ">")
+      final <- stringr::str_replace(final, "<=", ">")
     }
     spstr[ncol(spstr)] <- final
     pp_new <- c(pp, paste0(spstr, collapse = "&"))
@@ -163,30 +163,6 @@ make_plan <- function(candidates) {
   terminals <- terminals[!duplicated(terminals)]
   names(plan) <- NULL
   return(list("plan" = plan, "terminal" = terminals))
-}
-
-get_data <- function(data, plan) {
-  split_data  <- lapply(plan, function(cond) subset(data, eval(parse(text = cond))))
-  names(split_data) <- paste0("df", 1:length(plan))
-  for(pp in seq_along(plan)) {
-    attr(split_data[[pp]], which = "split") <- plan[[pp]]
-  }
-  return(split_data)
-}
-
-# Get the terminal nodes' dataframes
-nodes2dfs <- function(nodes, dat, terminal = TRUE) {
-  simp <- simplify_nodes(nodes)
-  untr <- untree(simp)
-  cand <- make_candidates(untr)
-  plan <- make_plan(cand)
-  if(terminal) {
-    plan <- plan$terminal
-  } else {
-    plan <- plan$plan
-  }
-  splt_data <- get_data(data = dat, plan)
-  return(splt_data)
 }
 
 lm_list <- function(dfs, formula) {
@@ -218,6 +194,16 @@ get_last <- function(node, level) {
   }
   return(ret)
 }
+
+get_data <- function(data, plan) {
+  split_data <- lapply(plan, function(cond) subset(data, eval(parse(text = cond))))
+  names(split_data) <- paste0("df", 1:length(plan))
+  for(pp in seq_along(plan)){
+    attr(split_data[[pp]], which = "split") <- plan[[pp]]
+  }
+  return(split_data)
+}
+
 
 summary.tree <- function(tree, level = 1, grp = NULL) {
   cat("\n")

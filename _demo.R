@@ -59,12 +59,10 @@ nodes <- get_nodes(reg_df, split_vars = c("Z1", "Z2", "Z3"),
                    max_steps = 10, min_obs = 10, pval = 0.001, cpp = FALSE)
 
 # helpers
-df_split <- nodes2dfs(nodes, terminal = TRUE)
 sim_nodes <- simplify_nodes(nodes)
 un_nodes <- untree(sim_nodes, FALSE)
 plant <- make_candidates(un_nodes)
 reg_plan <- make_plan(plant)
-data_split <- get_data(reg_df, reg_plan$plan)
 tree <- plant_tree(nodes, lm, formula = "Ytilde ~ X2 + X3")
 
 summary.tree(tree)
@@ -120,17 +118,17 @@ max_steps <- 5
 min_obs <- 50
 
 tree_lm <- get_nodes(data, split_vars = split_vars, 
-                     formula = "gdp_gr ~ gdp_init",
-                     max_steps, min_obs, n_splits = 1000, 
+                     formula = "gdp_gr ~ gdp_init", fun = lm,
+                     max_steps, min_obs, n_splits = 100, 
                      verbose = TRUE)
 
 tree_sar <- get_nodes(data, split_vars = split_vars, 
-                      formula = "gdp_gr_sar ~ gdp_init",
+                      formula = "gdp_gr_sar ~ gdp_init", fun = lm,
                       max_steps, min_obs, n_splits = 1000, 
                       verbose = TRUE)
 
 tree_sem <- get_nodes(data, split_vars = split_vars, 
-                      formula = "gdp_gr_sem ~ gdp_init_sem",
+                      formula = "gdp_gr_sem ~ gdp_init_sem", fun = lm,
                       max_steps, min_obs, n_splits = 1000, 
                       verbose = TRUE)
 
