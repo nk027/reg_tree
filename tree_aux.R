@@ -5,37 +5,25 @@
 
 
 # Stuff -------------------------------------------------------------------
-
-do_reg <- function(node, fun, formula, ...) {
-  out <- fun(formula, data = node$df, ...)
-  return(list(coefs = out))
+nodes2dfs <- function(nodes, dat, terminal = TRUE){
+  simp <- simplify_nodes(nodes)
+  untr <- untree(simp)
+  cand <- make_candidates(untr)
+  plan <- make_plan(cand)
+  if(terminal){
+    plan <- plan$terminal
+  }else{
+    plan <- plan$plan
+  }
+  splt_data <- get_data(data = dat, plan)
+  return(splt_data)
 }
 
-plant_tree <- function(nodes, fun = lm, formula, ...) {
-  leq <- nodes[[1]]
-  gre <- nodes[[2]]
-  
-  term_leq <- !is.null(names(leq))
-  term_gre <- !is.null(names(gre))
-  
-  if(term_leq & term_gre) {
-    out_leq <- do_reg(leq, fun, formula, ...)
-    out_leq$nodes <- leq$node
-    out_gre <- do_reg(gre, fun, formula, ...)
-    out_gre$nodes <- gre$node
-    return(list(out_leq, out_gre))
-  } else if(term_leq) {
-    out_leq <- do_reg(leq, fun, formula, ...)
-    out_leq$nodes <- leq$node
-    return(list(out_leq, Recall(gre, fun, formula, ...)))
-  } else if(term_gre) {
-    out_gre <- do_reg(gre, fun, formula)
-    out_gre$nodes <- gre$node
-    return(list(out_gre, Recall(leq, fun, formula, ...)))
-  } else {
-    return(list(Recall(leq, fun, formula, ...), 
-                Recall(gre, fun, formula, ...)))
-  }
+lm_list <- function(dfs, formula){
+  regs <- lapply(dfs, function(x) lm(formula = formula, data = x))
+  splits <- lapply(dfs, function(x) attr(x, which = 'split'))
+  names(regs) <- splits
+  return(regs)
 }
 
 l2df <- function(l, ...) {
