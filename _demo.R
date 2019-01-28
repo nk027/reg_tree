@@ -8,6 +8,7 @@
 
 set.seed(123)
 library(spdep)
+library(Rcpp)
 source("tree_core.R")
 source("tree_aux.R")
 
