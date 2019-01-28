@@ -6,36 +6,18 @@
 
 # Stuff -------------------------------------------------------------------
 
-do_reg <- function(node, fun, formula, ...) {
-  out <- fun(formula, data = node$df, ...)
-  return(list(coefs = out))
-}
-
-plant_tree <- function(nodes, fun = lm, formula, ...) {
-  leq <- nodes[[1]]
-  gre <- nodes[[2]]
-  
-  term_leq <- !is.null(names(leq))
-  term_gre <- !is.null(names(gre))
-  
-  if(term_leq & term_gre) {
-    out_leq <- do_reg(leq, fun, formula, ...)
-    out_leq$nodes <- leq$node
-    out_gre <- do_reg(gre, fun, formula, ...)
-    out_gre$nodes <- gre$node
-    return(list(out_leq, out_gre))
-  } else if(term_leq) {
-    out_leq <- do_reg(leq, fun, formula, ...)
-    out_leq$nodes <- leq$node
-    return(list(out_leq, Recall(gre, fun, formula, ...)))
-  } else if(term_gre) {
-    out_gre <- do_reg(gre, fun, formula)
-    out_gre$nodes <- gre$node
-    return(list(out_gre, Recall(leq, fun, formula, ...)))
-  } else {
-    return(list(Recall(leq, fun, formula, ...), 
-                Recall(gre, fun, formula, ...)))
+nodes2dfs <- function(nodes, dat, terminal = TRUE){
+  simp <- simplify_nodes(nodes)
+  untr <- untree(simp)
+  cand <- make_candidates(untr)
+  plan <- make_plan(cand)
+  if(terminal){
+    plan <- plan$terminal
+  }else{
+    plan <- plan$plan
   }
+  splt_data <- get_data(data = dat, plan)
+  return(splt_data)
 }
 
 l2df <- function(l, ...) {
@@ -204,47 +186,3 @@ get_data <- function(data, plan) {
   return(split_data)
 }
 
-
-summary.tree <- function(tree, level = 1, grp = NULL) {
-  cat("\n")
-  cat(ifelse(level == 1, "Root", paste("Split", level)))
-  cat("\n\n")
-  leq <- tree[[1]]
-  gre <- tree[[2]]
-  
-  if(is.null(grp)) {
-    grpx <- "gre"
-  } else {
-    grpx <- list(grp, "gre")
-  }
-  if(is.null(grp)) {
-    grpy <- "leq"
-  } else {
-    grpy <- list(grp, "leq")
-  }
-  
-  term_leq <- !is.null(names(leq))
-  term_gre <- !is.null(names(gre))
-  if(term_leq & term_gre) {
-    cat("<= ", get_last(leq, level),'\n' )
-    print.node(leq, level, grp = grpy)
-    cat("\n")
-    cat("> ", get_last(gre, level),'\n' )
-    print.node(gre, level, grp = grpx)
-  } else if(term_leq) {
-    cat("<= ", get_last(leq, level),'\n' )
-    print.node(leq, level, grp = grpy)
-    cat('\n', "> ", get_last(leq, level),":")
-    level <- level + 1
-    Recall(gre, level = level, grp = grpx)
-  } else if(term_gre) {
-    cat("> ", get_last(gre, level),'\n' )
-    print.node(gre, level = level, grp = grpx)
-    level <- level + 1
-    Recall(leq, level = level, grp = grpy)
-  } else {
-    level <- level + 1
-    return(list(Recall(leq, level = level, grp = grpy), 
-                Recall(gre, level = level, grp = grpx)))
-  }
-}

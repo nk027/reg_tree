@@ -59,13 +59,8 @@ nodes <- get_nodes(reg_df, split_vars = c("Z1", "Z2", "Z3"),
                    max_steps = 10, min_obs = 10, pval = 0.001, cpp = FALSE)
 
 # helpers
-sim_nodes <- simplify_nodes(nodes)
-un_nodes <- untree(sim_nodes, FALSE)
-plant <- make_candidates(un_nodes)
-reg_plan <- make_plan(plant)
-tree <- plant_tree(nodes, lm, formula = "Ytilde ~ X2 + X3")
-
-summary.tree(tree)
+dfs <- nodes2dfs(nodes, reg_df, terminal = TRUE)
+regs <- lm_list(dfs, "Ytilde ~ X2 + X3")
 
 
 # Processed data --------------------------------------------------------------------
@@ -132,20 +127,10 @@ tree_sem <- get_nodes(data, split_vars = split_vars,
                       max_steps, min_obs, n_splits = 1000, 
                       verbose = TRUE)
 
-sim_nodes_lm <- simplify_nodes(tree_lm)
-sim_nodes_lm <- untree(sim_nodes_lm)
-cand_lm <- make_candidates(sim_nodes_lm)
-plan_lm <- make_plan(cand_lm)
-terminal_lm <- get_data(data, plan_lm$terminal)
+terminal_lm  <- nodes2dfs(tree_lm, data, TRUE)
+terminal_sar  <- nodes2dfs(tree_sar, data, TRUE)
+terminal_sem  <- nodes2dfs(tree_sem, data, TRUE)
 
-sim_nodes_sar <- simplify_nodes(tree_sar)
-sim_nodes_sar <- untree(sim_nodes_sar)
-cand_sar <- make_candidates(sim_nodes_sar)
-plan_sar <- make_plan(cand_sar)
-terminal_sar <- get_data(data, plan_sar$terminal)
-
-sim_nodes_sem <- simplify_nodes(tree_sem)
-sim_nodes_sem <- untree(sim_nodes_sem)
-cand_sem <- make_candidates(sim_nodes_sem)
-plan_sem <- make_plan(cand_sem)
-terminal_sem <- get_data(data, plan_sem$terminal)
+regs_lm  <- lm_list(terminal_lm, "gdp_gr ~ gdp_init")
+regs_sar  <- lm_list(terminal_sar, "gdp_gr_sar ~ gdp_init")
+regs_sem  <- lm_list(terminal_sem, "gdp_gr_sem ~ gdp_init_sem")

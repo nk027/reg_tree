@@ -56,6 +56,7 @@ obj_fun <- function(model_list) {
 # Meat --------------------------------------------------------------------
 
 # Source the Rcpp implementation for the option cpp
+cat("Sourcing RCpp...")
 Rcpp::sourceCpp("cpp_implementation.cpp")
 
 #' @title Find Split
